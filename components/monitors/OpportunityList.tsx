@@ -1,0 +1,245 @@
+"use client";
+
+import { ArbitrageOpportunity, ScanLog } from "@/types/monitor";
+import { formatUSD, timeAgo } from "@/lib/utils/format";
+
+interface OpportunityListProps {
+  opportunities: ArbitrageOpportunity[];
+  logs: ScanLog[];
+  onClear: () => void;
+  onExecute: (opportunityId: string) => void;
+}
+
+const STATUS_CONFIG = {
+  pending: {
+    bg: "bg-blue-500/20 border-blue-400/50",
+    text: "text-blue-300",
+    label: "Pending",
+    icon: "⏳",
+  },
+  executing: {
+    bg: "bg-yellow-500/20 border-yellow-400/50 animate-pulse",
+    text: "text-yellow-300",
+    label: "Executing",
+    icon: "⚡",
+  },
+  success: {
+    bg: "bg-green-500/20 border-green-400/50",
+    text: "text-green-300",
+    label: "Success",
+    icon: "✅",
+  },
+  failed: {
+    bg: "bg-red-500/20 border-red-400/50",
+    text: "text-red-300",
+    label: "Failed",
+    icon: "❌",
+  },
+};
+
+export default function OpportunityList({
+  opportunities,
+  logs,
+  onClear,
+  onExecute,
+}: OpportunityListProps) {
+  const LOG_COLORS = {
+    info: "text-blue-300",
+    success: "text-green-300",
+    warning: "text-yellow-300",
+    error: "text-red-300",
+  };
+
+  const LOG_ICONS = {
+    info: "ℹ️",
+    success: "✅",
+    warning: "⚠️",
+    error: "❌",
+  };
+
+  return (
+    <div className="h-full flex flex-col gap-4 min-h-0">
+      {/* Opportunities Section - Take less space */}
+      <div className="flex-[2] glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden min-h-0">
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <h2 className="text-xl font-bold text-white">
+            Opportunities{" "}
+            <span className="text-sm text-gray-400 font-normal">({opportunities.length})</span>
+          </h2>
+          {opportunities.length > 0 && (
+            <button
+              onClick={onClear}
+              className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors px-2 py-1 rounded-lg hover:bg-red-900/20"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {opportunities.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="text-4xl mb-2 opacity-30">🔎</div>
+            <p className="text-gray-400 text-sm">
+              No opportunities found yet
+            </p>
+          </div>
+        ) : (
+          <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
+            {opportunities.map((opp) => {
+              const statusConfig = STATUS_CONFIG[opp.status];
+              const profitColor = opp.netProfit > 100 ? "text-green-300" : "text-yellow-300";
+
+              return (
+                <div
+                  key={opp.id}
+                  className="glass rounded-xl p-3 border border-white/5 hover:border-white/10 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">
+                        {opp.tokenPair}
+                      </h3>
+                      <p className="text-xs text-gray-400">{timeAgo(opp.timestamp)}</p>
+                    </div>
+
+                    <div className={`px-2 py-1 rounded-lg border flex items-center gap-1 ${statusConfig.bg}`}>
+                      <span className="text-xs">{statusConfig.icon}</span>
+                      <span className={`text-xs font-bold ${statusConfig.text}`}>
+                        {statusConfig.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="glass rounded-lg p-2 border border-red-900/50">
+                      <p className="text-xs text-red-400 font-medium mb-0.5">📥 Buy @ {opp.buyFrom.dex.toUpperCase()}</p>
+                      <p className="text-xs font-bold text-white">
+                        ${opp.buyFrom.price.toFixed(4)}
+                      </p>
+                    </div>
+
+                    <div className="glass rounded-lg p-2 border border-green-900/50">
+                      <p className="text-xs text-green-400 font-medium mb-0.5">📤 Sell @ {opp.sellTo.dex.toUpperCase()}</p>
+                      <p className="text-xs font-bold text-white">
+                        ${opp.sellTo.price.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 mb-2 text-center">
+                    <div>
+                      <p className="text-xs text-gray-400">Diff</p>
+                      <p className="text-xs font-bold text-blue-400">
+                        +{opp.priceDiff.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Est.</p>
+                      <p className="text-xs font-bold text-green-400">
+                        {formatUSD(opp.estimatedProfit)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400">Net</p>
+                      <p className={`text-xs font-bold ${profitColor}`}>
+                        {formatUSD(opp.netProfit)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Verification Info */}
+                  <div className="glass rounded-lg p-2 mb-2 border border-blue-900/30">
+                    <p className="text-xs text-blue-300 font-semibold mb-1">💡 Verification</p>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-gray-400">
+                        Gas: {formatUSD(opp.estimatedGasCost)} @ {opp.estimatedGasCost > 0 ? Math.round(opp.estimatedGasCost / 3095 * 1e9) : 0} Gwei
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Flash Loan Fee: ~${(1 * 3095 * 0.0005).toFixed(2)} (0.05%)
+                      </p>
+                      <a
+                        href={`https://www.dextools.io/app/ether/pair-explorer/${opp.buyFrom.pairAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                      >
+                        🔍 Verify on DEXTools
+                      </a>
+                    </div>
+                  </div>
+
+                  {opp.status === "pending" && (
+                    <button
+                      onClick={() => onExecute(opp.id)}
+                      className="w-full gradient-primary text-white font-bold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
+                    >
+                      ⚡ Execute
+                    </button>
+                  )}
+
+                  {opp.status === "executing" && (
+                    <div className="w-full bg-yellow-500/20 border border-yellow-400/50 text-yellow-300 font-bold py-2 rounded-lg text-center text-sm">
+                      <span className="animate-spin inline-block">⚙️</span> Executing...
+                    </div>
+                  )}
+
+                  {opp.status === "success" && (
+                    <div className="w-full bg-green-500/20 border border-green-400/50 text-green-300 font-bold py-2 rounded-lg text-center text-sm">
+                      ✅ Completed
+                    </div>
+                  )}
+
+                  {opp.status === "failed" && (
+                    <div className="w-full bg-red-500/20 border border-red-400/50 text-red-300 font-bold py-2 rounded-lg text-center text-sm">
+                      ❌ Failed
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Logs Section - Increased height for visibility */}
+      <div className="flex-[3] glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden min-h-0">
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <h2 className="text-xl font-bold text-white">
+            Activity Logs{" "}
+            <span className="text-sm text-gray-400 font-normal">({logs.length})</span>
+          </h2>
+        </div>
+
+        {logs.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="text-3xl mb-2 opacity-30">📋</div>
+            <p className="text-gray-400 text-sm">
+              No logs yet
+            </p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 space-y-1">
+            {logs.map((log) => (
+              <div
+                key={log.id}
+                className="glass rounded-lg p-2 border border-white/5 hover:border-white/10 transition-all"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-xs flex-shrink-0">{LOG_ICONS[log.level]}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-mono ${LOG_COLORS[log.level]}`}>
+                      {log.message}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {timeAgo(log.timestamp)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
