@@ -338,11 +338,102 @@ export function getFlashLoanProviders(chainId: ChainId) {
 export const FLASH_LOAN_PROVIDERS = FLASH_LOAN_PROVIDERS_MAINNET;
 
 /**
+ * Uniswap V3 Pools for Flash Swaps (Ethereum Mainnet)
+ * Using 500 bps (0.05% fee) pools for lowest flash swap cost
+ */
+export const UNISWAP_V3_FLASH_POOLS_MAINNET = {
+  WETH_USDC_500: "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",   // 0.05% fee (BEST)
+  WETH_USDC_3000: "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",  // 0.3% fee
+  WETH_USDT_3000: "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36",  // 0.3% fee
+  WETH_DAI_3000: "0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8",   // 0.3% fee
+  WETH_WBTC_3000: "0xCBCdF9626bC03E24f779434178A73a0B4bad62eD",  // 0.3% fee
+  USDC_USDT_100: "0x3416cF6C708Da44DB2624D63ea0AAef7113527C6",   // 0.01% fee (stablecoin pair)
+} as const;
+
+/**
+ * Uniswap V3 Pools for Flash Swaps (Sepolia Testnet)
+ */
+export const UNISWAP_V3_FLASH_POOLS_SEPOLIA = {
+  // Sepolia has limited liquidity, using what's available
+  WETH_USDC_3000: "0x0000000000000000000000000000000000000000", // Not available or low liquidity
+} as const;
+
+/**
+ * Get Uniswap V3 flash pool address
+ * @param tokenA First token address
+ * @param tokenB Second token address
+ * @param chainId Chain ID
+ * @returns Pool address or null if not found
+ */
+export function getUniswapV3FlashPool(
+  tokenA: string,
+  tokenB: string,
+  chainId: ChainId
+): string | null {
+  if (chainId !== 1) {
+    // Sepolia not supported yet due to low liquidity
+    return null;
+  }
+
+  const weth = TOKENS_MAINNET.WETH.address.toLowerCase();
+  const usdc = TOKENS_MAINNET.USDC.address.toLowerCase();
+  const usdt = TOKENS_MAINNET.USDT.address.toLowerCase();
+  const dai = TOKENS_MAINNET.DAI.address.toLowerCase();
+  const wbtc = TOKENS_MAINNET.WBTC.address.toLowerCase();
+
+  const token0 = tokenA.toLowerCase();
+  const token1 = tokenB.toLowerCase();
+
+  // WETH/USDC (highest volume, 0.05% fee)
+  if ((token0 === weth && token1 === usdc) || (token0 === usdc && token1 === weth)) {
+    return UNISWAP_V3_FLASH_POOLS_MAINNET.WETH_USDC_500;
+  }
+
+  // WETH/USDT
+  if ((token0 === weth && token1 === usdt) || (token0 === usdt && token1 === weth)) {
+    return UNISWAP_V3_FLASH_POOLS_MAINNET.WETH_USDT_3000;
+  }
+
+  // WETH/DAI
+  if ((token0 === weth && token1 === dai) || (token0 === dai && token1 === weth)) {
+    return UNISWAP_V3_FLASH_POOLS_MAINNET.WETH_DAI_3000;
+  }
+
+  // WETH/WBTC
+  if ((token0 === weth && token1 === wbtc) || (token0 === wbtc && token1 === weth)) {
+    return UNISWAP_V3_FLASH_POOLS_MAINNET.WETH_WBTC_3000;
+  }
+
+  // USDC/USDT (stablecoin pair, 0.01% fee)
+  if ((token0 === usdc && token1 === usdt) || (token0 === usdt && token1 === usdc)) {
+    return UNISWAP_V3_FLASH_POOLS_MAINNET.USDC_USDT_100;
+  }
+
+  return null;
+}
+
+/**
+ * Flash Loan Fees by Protocol
+ */
+export const FLASH_LOAN_FEES = {
+  [FlashLoanProtocol.AAVE_V3]: 0.09,      // 0.09% (9 bps)
+  [FlashLoanProtocol.UNISWAP_V3]: 0.05,   // 0.05% (5 bps) for 500 tier pools
+  [FlashLoanProtocol.BALANCER]: 0.0,      // 0.0% (free, but gas costs apply)
+} as const;
+
+/**
+ * Get flash loan fee for protocol
+ */
+export function getFlashLoanFee(protocol: FlashLoanProtocol): number {
+  return FLASH_LOAN_FEES[protocol];
+}
+
+/**
  * Flash Loan Arbitrage Contract Addresses
  */
 export const ARBITRAGE_CONTRACTS = {
   1: "0x0000000000000000000000000000000000000000", // Mainnet (not deployed yet)
-  11155111: "0x0F5D405A38B647DbC2C1B1F175E5e491330677a9", // Sepolia (deployed with DEX integration)
+  11155111: "0x221f68BEBDF4D20660747a6105970C727E78c36b", // Sepolia V2 (Uniswap V3 Flash Swap support)
 } as const;
 
 /**

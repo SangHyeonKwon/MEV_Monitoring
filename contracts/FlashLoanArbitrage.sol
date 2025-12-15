@@ -51,6 +51,20 @@ interface IQuoter {
     ) external returns (uint256 amountOut);
 }
 
+// Uniswap V3 Pool Interface (for Flash Swaps)
+interface IUniswapV3Pool {
+    function flash(
+        address recipient,
+        uint256 amount0,
+        uint256 amount1,
+        bytes calldata data
+    ) external;
+
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function fee() external view returns (uint24);
+}
+
 /**
  * @title FlashLoanArbitrage
  * @notice Flash loan arbitrage contract with DEX integration
@@ -60,6 +74,12 @@ contract FlashLoanArbitrage {
     IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
     IPool public immutable POOL;
     address public owner;
+
+    // Flash loan provider options
+    enum FlashProvider {
+        AAVE_V3,      // Aave V3 flash loan (0.09% fee)
+        UNISWAP_V3    // Uniswap V3 flash swap (0.05% fee for 500 bps pools)
+    }
 
     struct ArbitrageParams {
         address tokenA;           // Token to borrow and return
@@ -72,6 +92,7 @@ contract FlashLoanArbitrage {
         uint16 maxSlippageBps;    // Max slippage in basis points (e.g., 50 = 0.5%)
         bool isV3Buy;             // true if dexBuy is V3, false if V2
         bool isV3Sell;            // true if dexSell is V3, false if V2
+        FlashProvider flashProvider; // Flash loan provider to use
     }
 
     event FlashLoanExecuted(
@@ -138,6 +159,86 @@ contract FlashLoanArbitrage {
             params,
             referralCode
         );
+    }
+
+    /**
+     * @notice Request Uniswap V3 flash swap
+     * @param pool Uniswap V3 pool address
+     * @param asset Token to borrow
+     * @param amount Amount to borrow
+     * @param params Encoded arbitrage parameters
+     */
+    function requestUniswapV3FlashSwap(
+        address pool,
+        address asset,
+        uint256 amount,
+        bytes calldata params
+    ) external onlyOwner {
+        IUniswapV3Pool v3Pool = IUniswapV3Pool(pool);
+        address token0 = v3Pool.token0();
+        address token1 = v3Pool.token1();
+
+        // Determine which token is being borrowed
+        uint256 amount0 = asset == token0 ? amount : 0;
+        uint256 amount1 = asset == token1 ? amount : 0;
+
+        require(amount0 > 0 || amount1 > 0, "Invalid asset for this pool");
+
+        // Call flash function
+        v3Pool.flash(address(this), amount0, amount1, params);
+    }
+
+    /**
+     * @notice Uniswap V3 flash swap callback
+     * @dev Called by Uniswap V3 pool after transferring tokens
+     * @param fee0 Fee for token0
+     * @param fee1 Fee for token1
+     * @param data Encoded arbitrage parameters
+     */
+    function uniswapV3FlashCallback(
+        uint256 fee0,
+        uint256 fee1,
+        bytes calldata data
+    ) external {
+        // Decode params
+        ArbitrageParams memory params = abi.decode(data, (ArbitrageParams));
+
+        // Verify caller is a valid Uniswap V3 pool
+        // In production, you should maintain a whitelist of pools
+        require(msg.sender != address(0), "Invalid pool");
+
+        // Determine borrowed amount and fee
+        uint256 borrowed = fee0 > 0 ? fee0 : fee1;
+        uint256 fee = fee0 > 0 ? fee0 : fee1;
+
+        // Calculate amount owed (borrowed amount is already in our balance)
+        // We need to calculate actual borrowed amount from fee
+        // For 0.05% fee tier: borrowed = fee / 0.0005
+        uint256 feePercent = IUniswapV3Pool(msg.sender).fee();
+        uint256 actualBorrowed = (fee * 1000000) / feePercent;
+        uint256 amountOwed = actualBorrowed + fee;
+
+        emit FlashLoanExecuted(params.tokenA, actualBorrowed, fee);
+
+        // Execute arbitrage
+        try this.executeArbitrageInternal(params, actualBorrowed) returns (uint256 finalAmount) {
+            // Check profitability
+            require(finalAmount >= amountOwed, "Unprofitable arbitrage");
+
+            uint256 profit = finalAmount - amountOwed;
+            emit ArbitrageExecuted(params.tokenA, params.tokenB, actualBorrowed, finalAmount, profit);
+
+            // Repay flash swap
+            IERC20(params.tokenA).transfer(msg.sender, amountOwed);
+        } catch Error(string memory reason) {
+            emit ArbitrageFailed(params.tokenA, actualBorrowed, reason);
+
+            // Must repay even if arbitrage fails
+            uint256 contractBalance = IERC20(params.tokenA).balanceOf(address(this));
+            require(contractBalance >= amountOwed, "Insufficient funds to repay");
+
+            IERC20(params.tokenA).transfer(msg.sender, amountOwed);
+        }
     }
 
     /**

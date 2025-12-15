@@ -213,5 +213,5 @@ export const ARBITRAGE_STRATEGY = {
   maxGasGwei: 100, // Don't execute if gas > 100 Gwei
 
   // Flash loan
-  flashLoanFeePercent: 0.05, // Aave V3 = 0.05%
+  flashLoanFeePercent: 0.09, // Aave V3 = 0.09% (9 bps)
 };
