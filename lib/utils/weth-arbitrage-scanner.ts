@@ -107,13 +107,13 @@ export async function scanWETHPair(
               tokenIn: { address: wethAddress, symbol: "WETH", decimals: 18 },
               tokenOut: { address: tokenAddress, symbol: tokenSymbol, decimals: tokenDecimals },
               buyFrom: {
-                dex: buyDex.dex,
+                dex: buyDex.dex as any,
                 price: buyPriceUsd,
                 liquidity: "10000000",
                 pairAddress: buyDex.pairAddress || "0x0000000000000000000000000000000000000000",
               },
               sellTo: {
-                dex: sellDex.dex,
+                dex: sellDex.dex as any,
                 price: sellPriceUsd,
                 liquidity: "10000000",
                 pairAddress: sellDex.pairAddress || "0x0000000000000000000000000000000000000000",
@@ -122,7 +122,7 @@ export async function scanWETHPair(
               estimatedProfit: grossProfitUsd,
               estimatedGasCost: gasCostUsd,
               netProfit: netProfitUsd,
-              flashLoanProtocol: "AAVE_V3",
+              flashLoanProtocol: "AAVE_V3" as any,
               status: "pending",
             };
           }

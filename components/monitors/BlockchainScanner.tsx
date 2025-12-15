@@ -53,9 +53,9 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
       scale: [1, 1.15, 1],
       transition: {
         duration: 1.8,
-        repeat: Infinity,
+        repeat: Infinity as number,
         delay: i * 0.25,
-        ease: "easeInOut",
+        ease: [0.4, 0, 0.2, 1] as const,
       },
     }),
   };
@@ -68,8 +68,8 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
       opacity: [0.2, 0.7, 0.2],
       transition: {
         duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut",
+        repeat: Infinity as number,
+        ease: [0.4, 0, 0.2, 1] as const,
       },
     },
   };
@@ -176,9 +176,9 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
                   }}
                   transition={{
                     duration: 1.8,
-                    repeat: Infinity,
+                    repeat: Infinity as number,
                     delay: i * 0.25,
-                    ease: "easeInOut",
+                    ease: [0.4, 0, 0.2, 1] as const,
                   }}
                 />
               )}
@@ -245,9 +245,9 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
                     }}
                     transition={{
                       duration: 1.2,
-                      repeat: Infinity,
+                      repeat: Infinity as number,
                       delay: i * 0.15,
-                      ease: "linear",
+                      ease: [0, 0, 1, 1] as const,
                     }}
                   />
                   <motion.div
@@ -258,9 +258,9 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
                     }}
                     transition={{
                       duration: 1.2,
-                      repeat: Infinity,
+                      repeat: Infinity as number,
                       delay: i * 0.15 + 0.4,
-                      ease: "linear",
+                      ease: [0, 0, 1, 1] as const,
                     }}
                   />
                 </>
