@@ -73,6 +73,9 @@ export interface ArbitrageOpportunity {
   estimatedProfit: number; // Gross profit (USD)
   estimatedGasCost: number; // Gas cost (USD)
   netProfit: number; // Net profit after gas & fees (USD)
+  slippage?: number; // Total slippage for round trip (%)
+  buySlippage?: number; // Slippage on buy leg (%)
+  sellSlippage?: number; // Slippage on sell leg (%)
   flashLoanProtocol: FlashLoanProtocol;
   status: "pending" | "executing" | "success" | "failed";
 }
@@ -82,6 +85,7 @@ export interface ArbitrageSettings {
   flashLoanProtocol: FlashLoanProtocol;
   minProfitUsd: number;
   maxGasPrice: number;
+  maxSlippage: number; // Maximum acceptable slippage (%)
   tradeAmount: number; // Flash loan amount in ETH
   watchedTokens: string[]; // 관찰할 토큰 주소 목록
 }

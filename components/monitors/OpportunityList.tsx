@@ -59,8 +59,8 @@ export default function OpportunityList({
 
   return (
     <div className="h-full flex flex-col gap-4 min-h-0">
-      {/* Opportunities Section - Take less space */}
-      <div className="flex-[2] glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden min-h-0">
+      {/* Opportunities Section - ~60% height */}
+      <div className="glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden flex-[6] min-h-0">
         <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <h2 className="text-xl font-bold text-white">
             Opportunities{" "}
@@ -84,7 +84,7 @@ export default function OpportunityList({
             </p>
           </div>
         ) : (
-          <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20">
+          <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 min-h-0">
             {opportunities.map((opp) => {
               const statusConfig = STATUS_CONFIG[opp.status];
               const profitColor = opp.netProfit > 100 ? "text-green-300" : "text-yellow-300";
@@ -201,8 +201,8 @@ export default function OpportunityList({
         )}
       </div>
 
-      {/* Logs Section - Increased height for visibility */}
-      <div className="flex-[3] glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden min-h-0">
+      {/* Logs Section - ~40% height */}
+      <div className="glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden flex-[4] min-h-0">
         <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <h2 className="text-xl font-bold text-white">
             Activity Logs{" "}
@@ -218,7 +218,7 @@ export default function OpportunityList({
             </p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 space-y-1">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 space-y-1 min-h-0">
             {logs.map((log) => (
               <div
                 key={log.id}

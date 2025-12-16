@@ -182,7 +182,7 @@ export const DEFAULT_WATCHED_TOKENS = DEFAULT_WATCHED_TOKENS_MAINNET;
 export const DEFAULT_ARBITRAGE_CONFIG: ArbitrageConfig = {
   enabled: false,
   chainId: 1, // Ethereum Mainnet
-  refreshInterval: 5000, // 5 seconds
+  refreshInterval: 10000, // 10 seconds (reduced RPC load)
   minProfitUsd: 50, // 최소 $50 수익
   maxGasPrice: 50, // 최대 50 Gwei
 };
@@ -198,6 +198,7 @@ export const DEFAULT_ARBITRAGE_SETTINGS: ArbitrageSettings = {
   ],
   flashLoanProtocol: FlashLoanProtocol.AAVE_V3,
   minProfitUsd: 50,
+  maxSlippage: 0.5, // Maximum 0.5% slippage
   maxGasPrice: 50,
   tradeAmount: 1, // 1 ETH
   watchedTokens: DEFAULT_WATCHED_TOKENS,

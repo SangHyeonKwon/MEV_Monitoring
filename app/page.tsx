@@ -19,9 +19,9 @@ export default function Home() {
   return (
     <div className="h-screen overflow-hidden animated-gradient flex flex-col">
       <main className="flex-1 flex flex-col max-w-full px-8 py-6 overflow-hidden">
-        {/* Header - Professional Monitoring Style */}
+        {/* Header + Blockchain Scanner */}
         <div className="mb-6 flex-shrink-0">
-          <div className="glass-strong rounded-2xl px-6 py-4 shadow-2xl border border-white/10">
+          <div className="glass-strong rounded-2xl px-6 pt-4 pb-3 shadow-2xl border border-white/10 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               {/* Left: Logo & Title */}
               <div className="flex items-center gap-4">
@@ -55,7 +55,11 @@ export default function Home() {
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-gray-400">Gas:</span>
                         <span className="text-xs font-semibold text-white">
-                          {state.gasPrice.maxFeeGwei.toFixed(0)} Gwei
+                          {state.gasPrice.maxFeeGwei >= 1
+                            ? state.gasPrice.maxFeeGwei.toFixed(1)
+                            : state.gasPrice.maxFeeGwei.toFixed(2)
+                          }{" "}
+                          Gwei
                         </span>
                       </div>
                     )}
@@ -81,21 +85,22 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Blockchain Scanning Animation */}
-        <div className="mb-4 flex-shrink-0">
-          <div className="glass-strong rounded-xl px-4 py-2 border border-white/10">
-            <BlockchainScanner
-              isScanning={state.isScanning}
-              scannedCount={state.stats.totalScanned}
-              totalPairs={0}
-            />
+            {/* Blockchain Scanning Animation - integrated into header */}
+            <div className="border-t border-white/10 pt-2 -mx-2">
+              <div className="px-2">
+                <BlockchainScanner
+                  isScanning={state.isScanning}
+                  scannedCount={state.stats.totalScanned}
+                  totalPairs={0}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden">
+          {/* Left Column: Control Panel + Multi-DEX Price Comparison */}
           <ArbitrageControl
             state={state}
             onStart={startScanning}
@@ -103,6 +108,8 @@ export default function Home() {
             onUpdateSettings={updateSettings}
             onSetChainId={setChainId}
           />
+
+          {/* Right Column: Opportunities & Logs */}
           <OpportunityList
             opportunities={state.opportunities}
             logs={state.logs}

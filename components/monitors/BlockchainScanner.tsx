@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface BlockchainScannerProps {
   isScanning: boolean;
@@ -9,12 +9,32 @@ interface BlockchainScannerProps {
   totalPairs?: number;
 }
 
-const DEX_NAMES = ["Uniswap V2", "Uniswap V3", "Sushiswap", "Balancer", "Curve", "1inch", "0x"];
+const DEX_NAMES = [
+  "Uniswap V2",
+  "Uniswap V3",
+  "Sushiswap",
+  "Balancer",
+  "Curve",
+  "1inch",
+  "0x DEX",
+];
+
+const BLOCK_COUNT = 10;
+
+// Deterministic pseudo-hash generator to avoid hydration mismatches
+const generateHashFromIndex = (index: number) => {
+  const seed = ((index + 1) * 2654435761) >>> 0; // Knuth multiplicative hash
+  return seed.toString(16).padStart(6, "0").slice(0, 6);
+};
 
 export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0 }: BlockchainScannerProps) {
   const [currentDexIndex, setCurrentDexIndex] = useState(0);
   const [scanRate, setScanRate] = useState(0);
   const [lastScannedCount, setLastScannedCount] = useState(0);
+  const blockHashes = useMemo(
+    () => Array.from({ length: BLOCK_COUNT }, (_, i) => generateHashFromIndex(i)),
+    []
+  );
 
   // Calculate scan rate (scans per second)
   useEffect(() => {
@@ -73,8 +93,6 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
       },
     },
   };
-
-  const BLOCK_COUNT = 10;
 
   return (
     <div className="relative flex items-center justify-center gap-6 py-4 px-4">
@@ -186,7 +204,7 @@ export function BlockchainScanner({ isScanning, scannedCount = 0, totalPairs = 0
               {/* Hash value display */}
               <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 bg-gray-800/90 px-2 py-0.5 rounded border border-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity">
                 <span className="text-[8px] font-mono text-cyan-300">
-                  0x{Math.random().toString(16).substr(2, 6)}
+                  0x{blockHashes[i]}
                 </span>
               </div>
             </div>

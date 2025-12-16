@@ -26,9 +26,8 @@ export default function ArbitrageControl({
   onUpdateSettings,
   onSetChainId,
 }: ArbitrageControlProps) {
-
   return (
-    <div className="h-full glass-strong rounded-3xl shadow-2xl p-5 flex flex-col">
+    <div className="h-full min-h-0 glass-strong rounded-3xl shadow-2xl p-5 flex flex-col">
       {/* Header with Network Switcher and Start/Stop Button */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -90,41 +89,41 @@ export default function ArbitrageControl({
         </div>
       </div>
 
-      {/* Price Indicators - Gas and ETH */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      {/* Price Indicators - Gas and ETH (fixed height to avoid layout shift) */}
+      <div className="grid grid-cols-2 gap-2 mb-4 min-h-[72px]">
         {/* Gas Price */}
-        {state.gasPrice && (
-          <div className={`glass-strong rounded-xl p-3 border ${
-            state.gasPrice.maxFeeGwei > state.settings.maxGasPrice
+        <div
+          className={`glass-strong rounded-xl p-3 border ${
+            state.gasPrice && state.gasPrice.maxFeeGwei > state.settings.maxGasPrice
               ? "border-red-600/50"
               : "border-blue-600/30"
-          }`}>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">⛽</span>
-              <div className="flex-1">
-                <p className="text-xs text-gray-400 font-medium">Gas</p>
-                <p className="text-sm font-bold text-white">
-                  {state.gasPrice.maxFeeGwei.toFixed(1)} Gwei
-                </p>
-              </div>
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⛽</span>
+            <div className="flex-1">
+              <p className="text-xs text-gray-400 font-medium">Gas</p>
+              <p className="text-sm font-bold text-white">
+                {state.gasPrice
+                  ? `${state.gasPrice.maxFeeGwei.toFixed(2)} Gwei`
+                  : "—"}
+              </p>
             </div>
           </div>
-        )}
+        </div>
 
         {/* ETH Price */}
-        {state.ethPrice && (
-          <div className="glass-strong rounded-xl p-3 border border-purple-600/30">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">💎</span>
-              <div className="flex-1">
-                <p className="text-xs text-gray-400 font-medium">ETH/USD</p>
-                <p className="text-sm font-bold text-white">
-                  ${state.ethPrice.toFixed(2)}
-                </p>
-              </div>
+        <div className="glass-strong rounded-xl p-3 border border-purple-600/30">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">💎</span>
+            <div className="flex-1">
+              <p className="text-xs text-gray-400 font-medium">ETH/USD</p>
+              <p className="text-sm font-bold text-white">
+                {state.ethPrice ? `$${state.ethPrice.toFixed(2)}` : "—"}
+              </p>
             </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -143,189 +142,173 @@ export default function ArbitrageControl({
         </div>
       </div>
 
-      {/* Active Arbitrage Routes - Flow Diagram */}
-      <div className="glass rounded-xl p-4 border border-white/5 flex flex-col">
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <span>🔄</span>
-            <span>Current Route</span>
+      {/* Multi-DEX Price Comparison - Current Scan Snapshot */}
+      <div className="glass rounded-xl p-3 border border-white/5 flex flex-col flex-1">
+        <div className="flex items-center justify-between mb-3 flex-shrink-0">
+          <h3 className="text-base font-bold text-white flex items-center gap-2">
+            <span>📊</span>
+            <span>Multi-DEX Price Comparison</span>
           </h3>
           {state.scanResults.length > 0 && (
-            <span className="text-xs text-gray-400">
-              Scan #{state.stats.totalScanned}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-blue-300">
+                Scan #{state.stats.totalScanned}
+              </span>
+              <span className="text-xs text-gray-400">
+                {state.scanResults.length} pairs
+              </span>
+            </div>
           )}
         </div>
 
-        {state.scanResults.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm py-8">
-            {state.isScanning ? "Scanning for opportunities..." : "No routes scanned yet"}
-          </div>
-        ) : (
-          <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 max-h-[600px]">
-            {(() => {
-              // Rotate through scan results based on scan count
-              const resultIndex = (state.stats.totalScanned - 1) % state.scanResults.length;
-              const result = state.scanResults[resultIndex];
-              if (!result) return null;
+        <div className="flex-1">
+          {state.scanResults.length === 0 ? (
+            <div className="h-full flex items-center justify-center text-gray-400 text-sm py-8">
+              {state.isScanning ? "Scanning DEX prices..." : "Start scanning to compare prices"}
+            </div>
+          ) : (
+            (() => {
+              // Show ONE pair at a time - rotate through scan results
+              const currentIndex = (state.stats.totalScanned - 1) % state.scanResults.length;
+              const result = state.scanResults[currentIndex];
 
-              const opp = result.opportunity;
-              const isProfitable = opp && opp.netProfit > 0;
+              if (!result || !result.debug) return null;
 
-              // If no opportunity, create a placeholder with debug data
-              const displayData = opp || {
-                tokenPair: result.pairSymbol,
-                buyFrom: result.debug?.wethToTokenQuotes[0] ? {
-                  dex: result.debug.wethToTokenQuotes[0].dex,
-                  price: result.debug.wethToTokenQuotes[0].price, // WETH → Token (already USD)
-                } : null,
-                sellTo: result.debug?.tokenToWethQuotes[0] ? {
-                  dex: result.debug.tokenToWethQuotes[0].dex,
-                  price: result.debug.tokenToWethQuotes[0].price > 0
-                    ? 1 / result.debug.tokenToWethQuotes[0].price // Token → WETH inverted to USD
-                    : 0,
-                } : null,
-                netProfit: 0,
-                priceDiff: result.debug?.bestSpread || 0,
-                flashLoanProtocol: state.settings.flashLoanProtocol,
-                status: "pending" as const,
+              const { wethToTokenQuotes, tokenToWethQuotes, bestSpread } = result.debug;
+              const hasOpportunity = result.opportunity !== null;
+
+              // Helper: Find best/worst prices
+              const findBestWorst = (quotes: Array<{ dex: string; price: number }>) => {
+                if (quotes.length === 0) return { best: null, worst: null };
+                const prices = quotes.map((q) => q.price);
+                return { best: Math.max(...prices), worst: Math.min(...prices) };
               };
+
+              const wethToTokenBestWorst = findBestWorst(wethToTokenQuotes);
+              const tokenToWethBestWorst = findBestWorst(tokenToWethQuotes);
 
               return (
                 <div
-                  key={`${result.pairSymbol}-${state.stats.totalScanned}-${state.lastUpdate}`}
-                  className={`glass-strong rounded-lg p-3 border transition-all ${
-                    isProfitable
-                      ? "border-green-500/40 hover:border-green-500/60 bg-green-900/10"
-                      : "border-gray-700/30 hover:border-gray-600/40"
+                  key={`${result.pairSymbol}-${state.stats.totalScanned}`}
+                  className={`glass-strong rounded-xl p-2.5 border-2 transition-all ${
+                    hasOpportunity
+                      ? "border-green-500/60 bg-green-500/10"
+                      : "border-blue-500/40 bg-blue-500/5"
                   }`}
                 >
-                {/* Header: Pair + Status */}
-                <div className="flex items-center justify-between mb-4">
-                  <span className={`text-lg font-bold ${isProfitable ? "text-green-300" : "text-gray-400"}`}>
-                    {displayData.tokenPair}
-                  </span>
-                  {isProfitable ? (
-                    <span className={`text-xs px-3 py-1 rounded-lg font-bold ${
-                      opp?.status === "success" ? "bg-green-900/50 text-green-300" :
-                      opp?.status === "failed" ? "bg-red-900/50 text-red-300" :
-                      opp?.status === "executing" ? "bg-yellow-900/50 text-yellow-300 animate-pulse" :
-                      "bg-green-900/50 text-green-300"
-                    }`}>
-                      {opp?.status === "pending" ? "PROFITABLE" : opp?.status.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="text-xs px-3 py-1 rounded-lg font-bold bg-gray-800/50 text-gray-500">
-                      NO PROFIT
-                    </span>
-                  )}
-                </div>
-
-                {/* Horizontal Flow Diagram */}
-                <div className="flex items-center gap-2">
-                  {/* Step 1: Flash Loan */}
-                  <div className={`flex-1 rounded-xl px-3 py-4 shadow-lg ${
-                    isProfitable
-                      ? "bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-2 border-purple-500/60"
-                      : "bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-2 border-gray-700/40"
-                  }`}>
-                    <div className="flex flex-col items-center text-center gap-2">
-                      <span className="text-3xl">💰</span>
-                      <div className={`text-[10px] font-semibold ${isProfitable ? "text-purple-300" : "text-gray-500"}`}>
-                        FLASH LOAN
-                      </div>
-                      <div className={`text-xs font-bold ${isProfitable ? "text-white" : "text-gray-400"}`}>
-                        {FLASH_LOAN_LABELS[displayData.flashLoanProtocol]}
+                  {/* Pair Header - Compact */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <h4 className="text-lg font-bold text-white">{result.pairSymbol}</h4>
+                    <div className="flex items-center gap-2">
+                      {hasOpportunity && (
+                        <span className="px-3 py-1 rounded-lg bg-green-500/30 border-2 border-green-400/60 text-green-200 text-xs font-bold animate-pulse">
+                          ⚡ PROFIT
+                        </span>
+                      )}
+                      <div className="text-right">
+                        <p className="text-[10px] text-gray-400">Spread</p>
+                        <p className="text-sm font-bold text-blue-300">
+                          {bestSpread.toFixed(3)}%
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Arrow Right */}
-                  <div className={`text-3xl ${isProfitable ? "text-cyan-400" : "text-gray-600"}`}>→</div>
-
-                  {/* Step 2: Buy */}
-                  {displayData.buyFrom && (
-                    <>
-                      <div className={`flex-1 rounded-xl px-3 py-4 shadow-lg ${
-                        isProfitable
-                          ? "bg-gradient-to-br from-green-900/50 to-green-800/30 border-2 border-green-500/60"
-                          : "bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-2 border-gray-700/40"
-                      }`}>
-                        <div className="flex flex-col items-center text-center gap-2">
-                          <span className="text-3xl">📥</span>
-                          <div className={`text-[10px] font-semibold ${isProfitable ? "text-green-300" : "text-gray-500"}`}>
-                            BUY FROM
-                          </div>
-                          <div className={`text-xs font-bold ${isProfitable ? "text-white" : "text-gray-400"}`}>
-                            {displayData.buyFrom.dex.toUpperCase()}
-                          </div>
-                          <div className={`text-xs font-bold ${isProfitable ? "text-green-300" : "text-gray-500"}`}>
-                            ${displayData.buyFrom.price.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Arrow Right */}
-                      <div className={`text-3xl ${isProfitable ? "text-cyan-400" : "text-gray-600"}`}>→</div>
-                    </>
-                  )}
-
-                  {/* Step 3: Sell */}
-                  {displayData.sellTo && (
-                    <>
-                      <div className={`flex-1 rounded-xl px-3 py-4 shadow-lg ${
-                        isProfitable
-                          ? "bg-gradient-to-br from-red-900/50 to-red-800/30 border-2 border-red-500/60"
-                          : "bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-2 border-gray-700/40"
-                      }`}>
-                        <div className="flex flex-col items-center text-center gap-2">
-                          <span className="text-3xl">📤</span>
-                          <div className={`text-[10px] font-semibold ${isProfitable ? "text-red-300" : "text-gray-500"}`}>
-                            SELL TO
-                          </div>
-                          <div className={`text-xs font-bold ${isProfitable ? "text-white" : "text-gray-400"}`}>
-                            {displayData.sellTo.dex.toUpperCase()}
-                          </div>
-                          <div className={`text-xs font-bold ${isProfitable ? "text-red-300" : "text-gray-500"}`}>
-                            ${displayData.sellTo.price.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Arrow Right */}
-                      <div className={`text-3xl ${isProfitable ? "text-cyan-400" : "text-gray-600"}`}>→</div>
-                    </>
-                  )}
-
-                  {/* Step 4: Profit */}
-                  <div className={`flex-1 rounded-xl px-3 py-4 shadow-lg border-2 ${
-                    isProfitable
-                      ? "bg-gradient-to-r from-green-900/50 to-emerald-900/40 border-green-500/60"
-                      : "bg-gradient-to-r from-gray-900/50 to-gray-800/40 border-gray-700/50"
-                  }`}>
-                    <div className="flex flex-col items-center text-center gap-2">
-                      <span className="text-3xl">{isProfitable ? "💰" : "📊"}</span>
-                      <div className="text-[10px] text-gray-300 font-semibold">
-                        {isProfitable ? "NET PROFIT" : "SPREAD"}
-                      </div>
-                      <div className={`text-sm font-bold ${
-                        isProfitable ? "text-green-400" : "text-gray-400"
-                      }`}>
-                        {isProfitable
-                          ? `${displayData.netProfit > 0 ? "+" : ""}${formatUSD(displayData.netProfit)}`
-                          : `${displayData.priceDiff > 0 ? "+" : ""}${displayData.priceDiff.toFixed(4)}%`
-                        }
-                      </div>
-                      <div className={`text-[10px] font-bold ${isProfitable ? "text-cyan-300" : "text-gray-500"}`}>
-                        Spread: {displayData.priceDiff > 0 ? "+" : ""}{displayData.priceDiff.toFixed(4)}%
+                  {/* WETH → Token Prices (COMPACT) */}
+                  {wethToTokenQuotes.length > 0 && (
+                    <div className="mb-1.5">
+                      <p className="text-xs text-blue-300 font-bold mb-2 flex items-center gap-1">
+                        <span className="text-lg">📥</span>
+                        Buy Route (WETH → Token)
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {wethToTokenQuotes.map((quote, i) => {
+                          const isBest = quote.price === wethToTokenBestWorst.best;
+                          return (
+                            <div
+                              key={i}
+                              className={`glass-strong rounded-lg p-2 border-2 text-center transition-all ${
+                                isBest
+                                  ? "border-green-400/70 bg-green-500/20 scale-105"
+                                  : "border-white/20"
+                              }`}
+                            >
+                              <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                                <p className="text-[9px] font-bold text-gray-300">
+                                  {quote.dex.toUpperCase()}
+                                </p>
+                                {isBest && <span className="text-sm">🏆</span>}
+                              </div>
+                              <p className={`text-sm font-bold ${isBest ? "text-green-300" : "text-white"}`}>
+                                ${quote.price.toFixed(2)}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Token → WETH Prices (COMPACT) */}
+                  {tokenToWethQuotes.length > 0 && (
+                    <div className="mb-1.5">
+                      <p className="text-xs text-purple-300 font-bold mb-2 flex items-center gap-1">
+                        <span className="text-lg">📤</span>
+                        Sell Route (Token → WETH)
+                      </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {tokenToWethQuotes.map((quote, i) => {
+                          const isBest = quote.price === tokenToWethBestWorst.best;
+                          const displayPrice = quote.price > 0 ? 1 / quote.price : 0;
+                          return (
+                            <div
+                              key={i}
+                              className={`glass-strong rounded-lg p-2 border-2 text-center transition-all ${
+                                isBest
+                                  ? "border-green-400/70 bg-green-500/20 scale-105"
+                                  : "border-white/20"
+                              }`}
+                            >
+                              <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                                <p className="text-[9px] font-bold text-gray-300">
+                                  {quote.dex.toUpperCase()}
+                                </p>
+                                {isBest && <span className="text-sm">🏆</span>}
+                              </div>
+                              <p className={`text-sm font-bold ${isBest ? "text-green-300" : "text-white"}`}>
+                                ${displayPrice.toFixed(2)}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Opportunity Summary - Compact */}
+                  {hasOpportunity && result.opportunity && (
+                    <div className="mt-1.5 pt-1.5 border-t-2 border-green-400/30">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] text-gray-400 mb-0.5">Best Route</p>
+                          <p className="text-[11px] font-bold text-white">
+                            {result.opportunity.buyFrom.dex.toUpperCase()} → {result.opportunity.sellTo.dex.toUpperCase()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Net Profit</p>
+                          <p className="text-lg font-bold text-green-300">
+                            +${result.opportunity.netProfit.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )})()}
-          </div>
-        )}
+              );
+            })()
+          )}
+        </div>
       </div>
     </div>
   );

@@ -13,10 +13,14 @@ import { UNISWAP_V3_FACTORY_ABI } from "@/lib/abis/uniswapV3Factory";
 import { DEX_FACTORIES } from "@/lib/config";
 import { DexProtocol } from "@/types/monitor";
 
-// Server-side RPC client (no CORS issues)
+// Server-side RPC client with timeout (no CORS issues)
 const publicClient = createPublicClient({
   chain: mainnet,
-  transport: http(process.env.NEXT_PUBLIC_ETH_RPC_URL), // Use env variable on server
+  transport: http(process.env.NEXT_PUBLIC_ETH_RPC_URL, {
+    timeout: 10_000, // 10 second timeout for RPC calls
+    retryCount: 2,
+    retryDelay: 500,
+  }),
 });
 
 interface QuoteRequest {
@@ -193,9 +197,13 @@ async function getUniswapV3Price(
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
   try {
     const body: QuoteRequest = await request.json();
     const { token0, token1, decimals0, decimals1 } = body;
+
+    console.log(`[API] Fetching prices for ${token0}/${token1}`);
 
     const quotes = [];
 
@@ -325,10 +333,25 @@ export async function POST(request: NextRequest) {
       // Skip if error
     }
 
-    return NextResponse.json({ quotes });
+    const duration = Date.now() - startTime;
+    console.log(`[API] Fetched ${quotes.length} quotes in ${duration}ms`);
+
+    return NextResponse.json({
+      quotes,
+      meta: {
+        duration,
+        quotesCount: quotes.length,
+      }
+    });
   } catch (error: any) {
+    const duration = Date.now() - startTime;
+    console.error(`[API] Error after ${duration}ms:`, error.message);
+
     return NextResponse.json(
-      { error: error.message || "Failed to fetch prices" },
+      {
+        error: error.message || "Failed to fetch prices",
+        quotes: [], // Return empty array on error
+      },
       { status: 500 }
     );
   }
