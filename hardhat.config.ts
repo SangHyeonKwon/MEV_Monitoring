@@ -17,9 +17,11 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       forking: {
-        url: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "",
-        enabled: true, // Enable forking for tests
+        url: process.env.NEXT_PUBLIC_ETH_RPC_URL || "", // Fork mainnet for realistic arbitrage testing
+        enabled: true,
+        blockNumber: undefined, // Use latest block
       },
+      chainId: 31337, // Hardhat's default chain ID
     },
     sepolia: {
       url: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || "",

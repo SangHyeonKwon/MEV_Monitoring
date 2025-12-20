@@ -65,20 +65,42 @@ interface IUniswapV3Pool {
     function fee() external view returns (uint24);
 }
 
+// Balancer Vault Interface (for Flash Loans)
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+// Balancer Flash Loan Recipient Interface (callback)
+interface IFlashLoanRecipient {
+    function receiveFlashLoan(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory feeAmounts,
+        bytes memory userData
+    ) external;
+}
+
 /**
  * @title FlashLoanArbitrage
  * @notice Flash loan arbitrage contract with DEX integration
  * @dev Executes arbitrage trades between Uniswap V2 and V3
  */
-contract FlashLoanArbitrage {
+contract FlashLoanArbitrage is IFlashLoanRecipient {
     IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
     IPool public immutable POOL;
+    IBalancerVault public immutable BALANCER_VAULT;
     address public owner;
 
     // Flash loan provider options
     enum FlashProvider {
         AAVE_V3,      // Aave V3 flash loan (0.09% fee)
-        UNISWAP_V3    // Uniswap V3 flash swap (0.05% fee for 500 bps pools)
+        UNISWAP_V3,   // Uniswap V3 flash swap (0.05% fee for 500 bps pools)
+        BALANCER      // Balancer flash loan (0% fee)
     }
 
     struct ArbitrageParams {
@@ -120,19 +142,46 @@ contract FlashLoanArbitrage {
         _;
     }
 
-    constructor(address _addressesProvider) {
+    constructor(address _addressesProvider, address _balancerVault) {
         ADDRESSES_PROVIDER = IPoolAddressesProvider(_addressesProvider);
         POOL = IPool(ADDRESSES_PROVIDER.getPool());
+        BALANCER_VAULT = IBalancerVault(_balancerVault);
         owner = msg.sender;
     }
 
     /**
-     * @notice Request a flash loan and execute arbitrage
+     * @notice Request a Balancer flash loan and execute arbitrage
      * @param asset The address of the token to borrow
      * @param amount The amount to borrow
      * @param params Arbitrage parameters encoded as bytes
      */
-    function requestFlashLoan(
+    function requestBalancerFlashLoan(
+        address asset,
+        uint256 amount,
+        bytes calldata params
+    ) external onlyOwner {
+        address[] memory tokens = new address[](1);
+        tokens[0] = asset;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount;
+
+        // Balancer flash loan - 0% fee
+        BALANCER_VAULT.flashLoan(
+            address(this),
+            tokens,
+            amounts,
+            params
+        );
+    }
+
+    /**
+     * @notice Request an Aave V3 flash loan and execute arbitrage
+     * @param asset The address of the token to borrow
+     * @param amount The amount to borrow
+     * @param params Arbitrage parameters encoded as bytes
+     */
+    function requestAaveFlashLoan(
         address asset,
         uint256 amount,
         bytes calldata params
@@ -159,6 +208,21 @@ contract FlashLoanArbitrage {
             params,
             referralCode
         );
+    }
+
+    /**
+     * @notice Request a flash loan and execute arbitrage (backwards compatibility)
+     * @dev Defaults to Aave V3 flash loan
+     * @param asset The address of the token to borrow
+     * @param amount The amount to borrow
+     * @param params Arbitrage parameters encoded as bytes
+     */
+    function requestFlashLoan(
+        address asset,
+        uint256 amount,
+        bytes calldata params
+    ) external onlyOwner {
+        this.requestAaveFlashLoan(asset, amount, params);
     }
 
     /**
@@ -238,6 +302,56 @@ contract FlashLoanArbitrage {
             require(contractBalance >= amountOwed, "Insufficient funds to repay");
 
             IERC20(params.tokenA).transfer(msg.sender, amountOwed);
+        }
+    }
+
+    /**
+     * @notice Balancer flash loan callback - executes arbitrage
+     * @dev This function is called by Balancer Vault after transferring the borrowed amount
+     * @dev Balancer has 0% flash loan fee, so feeAmounts will be all zeros
+     */
+    function receiveFlashLoan(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory feeAmounts,
+        bytes memory userData
+    ) external override {
+        require(msg.sender == address(BALANCER_VAULT), "Caller must be Balancer Vault");
+
+        address asset = tokens[0];
+        uint256 amount = amounts[0];
+        uint256 feeAmount = feeAmounts[0]; // Should be 0 for Balancer
+
+        emit FlashLoanExecuted(asset, amount, feeAmount);
+
+        // Decode arbitrage parameters from userData
+        if (userData.length > 0) {
+            ArbitrageParams memory arbParams = abi.decode(userData, (ArbitrageParams));
+
+            try this.executeArbitrageInternal(arbParams, amount) returns (uint256 finalAmount) {
+                // Check if profitable after repaying flash loan
+                uint256 amountOwed = amount + feeAmount; // feeAmount is 0 for Balancer
+                require(finalAmount >= amountOwed, "Unprofitable arbitrage");
+
+                uint256 profit = finalAmount - amountOwed;
+                emit ArbitrageExecuted(arbParams.tokenA, arbParams.tokenB, amount, finalAmount, profit);
+
+                // Repay flash loan by transferring tokens back to Vault
+                IERC20(asset).transfer(address(BALANCER_VAULT), amountOwed);
+            } catch Error(string memory reason) {
+                emit ArbitrageFailed(asset, amount, reason);
+
+                // Even if arbitrage fails, we must repay the flash loan
+                uint256 contractBalance = IERC20(asset).balanceOf(address(this));
+                uint256 amountOwed = amount + feeAmount;
+                require(contractBalance >= amountOwed, "Insufficient funds to repay");
+
+                IERC20(asset).transfer(address(BALANCER_VAULT), amountOwed);
+            }
+        } else {
+            // No arbitrage, just test flash loan
+            uint256 amountOwed = amount + feeAmount;
+            IERC20(asset).transfer(address(BALANCER_VAULT), amountOwed);
         }
     }
 

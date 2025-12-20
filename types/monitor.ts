@@ -73,9 +73,12 @@ export interface ArbitrageOpportunity {
   estimatedProfit: number; // Gross profit (USD)
   estimatedGasCost: number; // Gas cost (USD)
   netProfit: number; // Net profit after gas & fees (USD)
+  tradeAmount: number; // Optimal trade amount in ETH
   slippage?: number; // Total slippage for round trip (%)
   buySlippage?: number; // Slippage on buy leg (%)
   sellSlippage?: number; // Slippage on sell leg (%)
+  gasPrice?: GasPrice; // Gas price at time of opportunity detection
+  ethPrice?: number; // ETH price in USD at time of detection
   flashLoanProtocol: FlashLoanProtocol;
   status: "pending" | "executing" | "success" | "failed";
 }
@@ -88,6 +91,7 @@ export interface ArbitrageSettings {
   maxSlippage: number; // Maximum acceptable slippage (%)
   tradeAmount: number; // Flash loan amount in ETH
   watchedTokens: string[]; // 관찰할 토큰 주소 목록
+  autoExecute: boolean; // Auto-execute opportunities when found
 }
 
 export type LogLevel = "info" | "success" | "warning" | "error";
@@ -103,6 +107,7 @@ export interface GasPrice {
   baseFeeGwei: number;
   priorityFeeGwei: number;
   maxFeeGwei: number;
+  gasPriceGwei?: number; // Legacy gas price (for non-EIP-1559)
   timestamp: number;
 }
 

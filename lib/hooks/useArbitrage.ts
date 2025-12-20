@@ -6,21 +6,26 @@ import { DEFAULT_ARBITRAGE_CONFIG, DEFAULT_ARBITRAGE_SETTINGS, NETWORKS, getDefa
 import { getCurrentGasPrice } from "@/lib/utils/gas-price";
 import { getEthPriceCached } from "@/lib/utils/eth-price";
 import { scanAllWETHPairs } from "@/lib/utils/weth-arbitrage-scanner";
+import { executeArbitrageDryRun, isHardhatNodeRunning } from "@/lib/utils/execute-arbitrage";
+import { initializeCSV, logOpportunity, updateExecutionStatus, logScanResults } from "@/lib/utils/csv-logger";
 
 /**
  * 차익거래 상태 관리 훅
  */
 export function useArbitrage() {
+  // HARDCODED: Always use Mainnet (Chain ID: 1)
+  const FIXED_CHAIN_ID = 1; // Ethereum Mainnet
+
   const [state, setState] = useState<ArbitrageState>({
     isScanning: false,
-    chainId: 1, // Default to Mainnet
+    chainId: FIXED_CHAIN_ID, // Fixed to Mainnet
     lastUpdate: Date.now(),
     opportunities: [],
     scanResults: [],
     config: DEFAULT_ARBITRAGE_CONFIG,
     settings: {
       ...DEFAULT_ARBITRAGE_SETTINGS,
-      watchedTokens: getDefaultWatchedTokens(1), // Use Mainnet tokens
+      watchedTokens: getDefaultWatchedTokens(FIXED_CHAIN_ID), // Mainnet tokens only
     },
     logs: [],
     gasPrice: null,
@@ -51,7 +56,7 @@ export function useArbitrage() {
       isScanning: true,
       lastUpdate: Date.now(),
     }));
-    addLog("info", "Scanner started");
+    addLog("info", "Scanner started on Ethereum Mainnet");
 
     // Fetch initial gas price
     try {
@@ -72,7 +77,7 @@ export function useArbitrage() {
 
     // Fetch initial ETH price
     try {
-      const ethPrice = await getEthPriceCached(state.chainId);
+      const ethPrice = await getEthPriceCached(FIXED_CHAIN_ID);
       setState((prev) => ({
         ...prev,
         ethPrice,
@@ -81,7 +86,7 @@ export function useArbitrage() {
     } catch (error) {
       addLog("error", `Failed to fetch ETH price: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }, [addLog, state.chainId]);
+  }, [addLog]);
 
   const stopScanning = useCallback(() => {
     setState((prev) => ({
@@ -99,25 +104,10 @@ export function useArbitrage() {
   }, []);
 
   const setChainId = useCallback((chainId: ChainId) => {
-    if (state.isScanning) {
-      addLog("warning", "Please stop scanning before changing network");
-      return;
-    }
-    setState((prev) => ({
-      ...prev,
-      chainId,
-      opportunities: [], // Clear opportunities when switching networks
-      scanResults: [], // Clear scan results when switching networks
-      gasPrice: null,
-      ethPrice: null,
-      settings: {
-        ...prev.settings,
-        watchedTokens: getDefaultWatchedTokens(chainId), // Update tokens for new network
-      },
-    }));
-    const networkName = chainId === 1 ? "Ethereum Mainnet" : "Sepolia Testnet";
-    addLog("info", `Switched to ${networkName}`);
-  }, [state.isScanning, addLog]);
+    // DISABLED: Network switching is disabled, always use Mainnet
+    addLog("warning", "Network switching disabled - using Mainnet only");
+    return;
+  }, [addLog]);
 
   const addOpportunity = useCallback((opportunity: ArbitrageOpportunity) => {
     setState((prev) => ({
@@ -130,6 +120,9 @@ export function useArbitrage() {
       },
     }));
     addLog("success", `Found opportunity: ${opportunity.tokenPair} (+${opportunity.priceDiff.toFixed(2)}%)`);
+    
+    // Log to CSV (ethPrice and gasPrice are now in the opportunity object)
+    logOpportunity(opportunity);
   }, [addLog]);
 
   const clearOpportunities = useCallback(() => {
@@ -144,7 +137,14 @@ export function useArbitrage() {
     const opportunity = state.opportunities.find(o => o.id === opportunityId);
     if (!opportunity) return;
 
-    addLog("info", `Executing arbitrage for ${opportunity.tokenPair}...`);
+    // Check if Hardhat node is running
+    const nodeRunning = await isHardhatNodeRunning();
+    if (!nodeRunning) {
+      addLog("error", `❌ Hardhat node not running. Start with: npx hardhat node --fork ${process.env.NEXT_PUBLIC_ETH_RPC_URL}`);
+      return;
+    }
+
+    addLog("info", `🔧 Dry-run: Executing ${opportunity.tokenPair} on Hardhat fork...`);
 
     // Set status to executing
     setState((prev) => ({
@@ -153,14 +153,25 @@ export function useArbitrage() {
         opp.id === opportunityId ? { ...opp, status: "executing" as const } : opp
       ),
     }));
+    
+    // Update CSV with executing status
+    updateExecutionStatus(opportunityId, "executing");
 
-    // TODO: 실제 차익거래 실행 로직 구현 필요
-    // 현재는 시뮬레이션: 2-5초 후 70% 성공, 30% 실패
-    const executionTime = 2000 + Math.random() * 3000; // 2-5 seconds
-    const willSucceed = Math.random() > 0.3; // 70% success rate
+    try {
+      // Get contract address from deployment
+      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+      if (!contractAddress) {
+        throw new Error("Contract address not configured");
+      }
 
-    setTimeout(() => {
-      if (willSucceed) {
+      // Execute on Hardhat fork
+      const result = await executeArbitrageDryRun(
+        opportunity,
+        contractAddress,
+        state.ethPrice || 3500
+      );
+
+      if (result.success) {
         setState((prev) => ({
           ...prev,
           opportunities: prev.opportunities.map((opp) =>
@@ -168,73 +179,158 @@ export function useArbitrage() {
           ),
           stats: {
             ...prev.stats,
-            totalProfit: prev.stats.totalProfit + (prev.opportunities.find(o => o.id === opportunityId)?.netProfit || 0),
+            totalProfit: prev.stats.totalProfit + (result.profitUsd || 0),
           },
         }));
-        addLog("success", `✅ Executed successfully! Profit: $${opportunity.netProfit.toFixed(2)}`);
+        addLog("success", `✅ Dry-run succeeded! Estimated profit: $${result.profitUsd?.toFixed(2) || '0.00'} | Gas: ${result.gasUsed} | Tx: ${result.txHash?.slice(0, 10)}...`);
+        
+        // Update CSV with execution result
+        updateExecutionStatus(
+          opportunityId,
+          "success",
+          undefined,
+          result.txHash,
+          result.gasUsed,
+          result.profitUsd
+        );
       } else {
-        const failReasons = [
-          "Insufficient liquidity",
-          "Price slippage too high",
-          "Transaction reverted",
-          "Gas price spike",
-          "Opportunity expired"
-        ];
-        const reason = failReasons[Math.floor(Math.random() * failReasons.length)];
-
         setState((prev) => ({
           ...prev,
           opportunities: prev.opportunities.map((opp) =>
             opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
           ),
         }));
-        addLog("error", `❌ Execution failed: ${reason}`);
+        addLog("error", `❌ Dry-run failed: ${result.error}`);
+        
+        // Update CSV with execution failure
+        updateExecutionStatus(
+          opportunityId,
+          "failed",
+          result.error
+        );
       }
-    }, executionTime);
-  }, [state.opportunities, addLog]);
+    } catch (error: any) {
+      setState((prev) => ({
+        ...prev,
+        opportunities: prev.opportunities.map((opp) =>
+          opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
+        ),
+      }));
+      addLog("error", `❌ Execution error: ${error.message || 'Unknown error'}`);
+      
+      // Update CSV with execution error
+      updateExecutionStatus(
+        opportunityId,
+        "failed",
+        error.message || 'Unknown error'
+      );
+    }
+  }, [state.opportunities, state.ethPrice, addLog]);
+
+  // Initialize CSV logger on mount
+  useEffect(() => {
+    initializeCSV();
+  }, []);
+
+  // Auto-execute opportunities when found
+  useEffect(() => {
+    if (!state.settings.autoExecute || state.opportunities.length === 0) return;
+
+    // Find the newest pending opportunity
+    const newestPending = state.opportunities.find(
+      (opp) => opp.status === "pending"
+    );
+
+    if (newestPending) {
+      addLog("info", `🤖 Auto-executing ${newestPending.tokenPair}...`);
+      // Delay slightly to allow state to settle
+      const timer = setTimeout(() => {
+        executeArbitrage(newestPending.id);
+      }, 200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [state.opportunities, state.settings.autoExecute, executeArbitrage, addLog]);
 
   // 스캐닝 루프 - Real price fetching
   useEffect(() => {
     if (!state.isScanning) return;
 
     let scanCount = 0;
+    let isMounted = true;
 
     const scanForOpportunities = async () => {
-      setState((prev) => ({
-        ...prev,
-        lastUpdate: Date.now(),
-        stats: {
-          ...prev.stats,
-          totalScanned: prev.stats.totalScanned + 1,
-        },
-      }));
-
+      if (!isMounted) return;
       scanCount++;
 
       try {
         addLog("info", `🔍 Scanning high-liquidity WETH pairs...`);
 
+        // Ensure gas price is fetched before scanning (for accurate profitability calculation)
+        let currentGasPrice = state.gasPrice;
+        if (!currentGasPrice || scanCount === 1) {
+          try {
+            const gasData = await getCurrentGasPrice();
+            currentGasPrice = {
+              baseFeeGwei: gasData.baseFeeGwei,
+              priorityFeeGwei: gasData.priorityFeeGwei,
+              maxFeeGwei: gasData.maxFeeGwei,
+              timestamp: gasData.timestamp,
+            };
+            setState((prev) => ({
+              ...prev,
+              gasPrice: currentGasPrice,
+            }));
+            addLog("info", `⛽ Gas: ${currentGasPrice.maxFeeGwei.toFixed(1)} Gwei (mainnet)`);
+          } catch (error) {
+            addLog("warning", "Failed to fetch gas price, using fallback 30 Gwei");
+            // Use fallback gas price
+            currentGasPrice = {
+              baseFeeGwei: 10,
+              priorityFeeGwei: 2,
+              maxFeeGwei: 30,
+              timestamp: Date.now(),
+            };
+          }
+        }
+
         // Get ETH price from Chainlink
         let ethPriceUsd = 3500; // Fallback
         try {
-          ethPriceUsd = await getEthPriceCached(state.chainId);
+          ethPriceUsd = await getEthPriceCached(FIXED_CHAIN_ID);
         } catch (error) {
           addLog("warning", "Failed to fetch ETH price, using fallback $3500");
         }
 
         // Scan all high-liquidity WETH pairs (WETH/USDC, WETH/USDT, etc.)
+        // Use currentGasPrice (just fetched) instead of state.gasPrice (may be stale)
         const results = await scanAllWETHPairs(
-          state.chainId,
+          FIXED_CHAIN_ID, // Always use Mainnet
           state.settings.tradeAmount, // WETH amount (e.g., 1 ETH)
-          state.gasPrice,
-          ethPriceUsd
+          currentGasPrice, // Use freshly fetched gas price
+          ethPriceUsd,
+          state.settings.maxSlippage, // Maximum acceptable slippage
+          state.settings.flashLoanProtocol // Flash loan protocol (Balancer, Aave V3, etc.)
         );
 
+        // Log all scan results to CSV (for data collection)
+        // Use scanCount instead of state.stats.totalScanned for accurate count
+        logScanResults(
+          results,
+          scanCount,
+          ethPriceUsd,
+          currentGasPrice?.maxFeeGwei || null
+        );
+        
         // Store all scan results with fresh array reference
         setState((prev) => ({
           ...prev,
           scanResults: [...results], // Create new array to trigger re-render
           lastUpdate: Date.now(), // Force update
+          stats: {
+            ...prev.stats,
+            totalScanned: scanCount, // Use scanCount instead of newScanNumber
+          },
         }));
 
         // Count scanned pairs
@@ -335,7 +431,7 @@ export function useArbitrage() {
 
         // Update ETH price
         try {
-          const ethPrice = await getEthPriceCached(state.chainId);
+          const ethPrice = await getEthPriceCached(FIXED_CHAIN_ID);
           setState((prev) => ({
             ...prev,
             ethPrice,
@@ -347,12 +443,23 @@ export function useArbitrage() {
       }
     };
 
+    // Run immediately on mount/start
+    scanForOpportunities();
+
     const interval = setInterval(() => {
-      scanForOpportunities();
+      if (isMounted) {
+        scanForOpportunities();
+      }
     }, state.config.refreshInterval);
 
-    return () => clearInterval(interval);
-  }, [state.isScanning, state.config.refreshInterval, state.chainId, state.settings.tradeAmount, state.settings.watchedTokens, state.settings.maxGasPrice, state.gasPrice, addLog, addOpportunity]);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+    // Only depend on essential values that should restart the scan
+    // chainId is fixed to Mainnet, no need to include in dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isScanning, state.config.refreshInterval]);
 
   return {
     state,

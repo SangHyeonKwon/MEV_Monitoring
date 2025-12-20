@@ -82,18 +82,18 @@ export default function Home() {
                   <span className="text-xs font-medium text-gray-300">
                     {state.chainId === 1 ? "Mainnet" : "Sepolia"}
                   </span>
-                </div>
-              </div>
             </div>
+          </div>
+        </div>
 
             {/* Blockchain Scanning Animation - integrated into header */}
             <div className="border-t border-white/10 pt-2 -mx-2">
               <div className="px-2">
-                <BlockchainScanner
-                  isScanning={state.isScanning}
-                  scannedCount={state.stats.totalScanned}
-                  totalPairs={0}
-                />
+            <BlockchainScanner
+              isScanning={state.isScanning}
+              scannedCount={state.stats.totalScanned}
+              totalPairs={0}
+            />
               </div>
             </div>
           </div>

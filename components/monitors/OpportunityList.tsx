@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ArbitrageOpportunity, ScanLog } from "@/types/monitor";
 import { formatUSD, timeAgo } from "@/lib/utils/format";
 
@@ -43,6 +44,8 @@ export default function OpportunityList({
   onClear,
   onExecute,
 }: OpportunityListProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   const LOG_COLORS = {
     info: "text-blue-300",
     success: "text-green-300",
@@ -55,6 +58,37 @@ export default function OpportunityList({
     success: "✅",
     warning: "⚠️",
     error: "❌",
+  };
+
+  const currentOpportunity = opportunities.length > 0 ? opportunities[currentIndex] : null;
+  const canGoPrev = currentIndex > 0;
+  const canGoNext = currentIndex < opportunities.length - 1;
+
+  // Reset index when opportunities change
+  useEffect(() => {
+    if (opportunities.length > 0) {
+      if (currentIndex >= opportunities.length) {
+        setCurrentIndex(opportunities.length - 1);
+      }
+      // If new opportunity added, show the first one (newest)
+      if (opportunities.length === 1 && currentIndex !== 0) {
+        setCurrentIndex(0);
+      }
+    } else {
+      setCurrentIndex(0);
+    }
+  }, [opportunities.length]);
+
+  const handlePrev = () => {
+    if (canGoPrev) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (canGoNext) {
+      setCurrentIndex(currentIndex + 1);
+    }
   };
 
   return (
@@ -84,15 +118,43 @@ export default function OpportunityList({
             </p>
           </div>
         ) : (
-          <div className="flex-1 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 min-h-0">
-            {opportunities.map((opp) => {
+          <div className="flex-1 flex flex-col min-h-0 relative">
+            {/* Navigation Buttons */}
+            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 flex justify-between px-2 z-10 pointer-events-none">
+              <button
+                onClick={handlePrev}
+                disabled={!canGoPrev}
+                className={`pointer-events-auto w-8 h-8 rounded-full glass-strong border border-white/20 flex items-center justify-center transition-all ${
+                  canGoPrev
+                    ? "hover:bg-white/10 hover:scale-110 cursor-pointer"
+                    : "opacity-30 cursor-not-allowed"
+                }`}
+              >
+                <span className="text-white text-lg">↑</span>
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={!canGoNext}
+                className={`pointer-events-auto w-8 h-8 rounded-full glass-strong border border-white/20 flex items-center justify-center transition-all ${
+                  canGoNext
+                    ? "hover:bg-white/10 hover:scale-110 cursor-pointer"
+                    : "opacity-30 cursor-not-allowed"
+                }`}
+              >
+                <span className="text-white text-lg">↓</span>
+              </button>
+            </div>
+
+            {/* Current Opportunity Display */}
+            {currentOpportunity && (() => {
+              const opp = currentOpportunity;
               const statusConfig = STATUS_CONFIG[opp.status];
               const profitColor = opp.netProfit > 100 ? "text-green-300" : "text-yellow-300";
 
               return (
                 <div
                   key={opp.id}
-                  className="glass rounded-xl p-3 border border-white/5 hover:border-white/10 transition-all"
+                  className="glass rounded-xl p-3 border border-white/5 hover:border-white/10 transition-all h-full flex flex-col"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div>
@@ -157,6 +219,16 @@ export default function OpportunityList({
                       <p className="text-xs text-gray-400">
                         Flash Loan Fee: ~${(1 * 3095 * 0.0005).toFixed(2)} (0.05%)
                       </p>
+                      {opp.slippage !== undefined && (
+                        <p className="text-xs text-gray-400">
+                          Slippage: {opp.slippage.toFixed(3)}% 
+                          {opp.buySlippage !== undefined && opp.sellSlippage !== undefined && (
+                            <span className="text-gray-500">
+                              {" "}(Buy: {opp.buySlippage.toFixed(2)}%, Sell: {opp.sellSlippage.toFixed(2)}%)
+                            </span>
+                          )}
+                        </p>
+                      )}
                       <a
                         href={`https://www.dextools.io/app/ether/pair-explorer/${opp.buyFrom.pairAddress}`}
                         target="_blank"
@@ -196,7 +268,14 @@ export default function OpportunityList({
                   )}
                 </div>
               );
-            })}
+            })()}
+            
+            {/* Counter */}
+            {opportunities.length > 1 && (
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 glass-strong px-3 py-1 rounded-full border border-white/20 text-xs text-gray-300">
+                {currentIndex + 1} / {opportunities.length}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -205,8 +284,7 @@ export default function OpportunityList({
       <div className="glass-strong rounded-3xl shadow-2xl p-5 flex flex-col overflow-hidden flex-[4] min-h-0">
         <div className="flex items-center justify-between mb-3 flex-shrink-0">
           <h2 className="text-xl font-bold text-white">
-            Activity Logs{" "}
-            <span className="text-sm text-gray-400 font-normal">({logs.length})</span>
+            Activity Logs
           </h2>
         </div>
 
@@ -218,7 +296,7 @@ export default function OpportunityList({
             </p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/20 space-y-1 min-h-0">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-transparent space-y-1 min-h-0">
             {logs.map((log) => (
               <div
                 key={log.id}

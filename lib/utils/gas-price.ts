@@ -1,13 +1,3 @@
-import { createPublicClient, http, formatGwei } from "viem";
-import { mainnet } from "viem/chains";
-import { ETH_RPC_URL } from "@/lib/config";
-
-// Create viem public client
-const publicClient = createPublicClient({
-  chain: mainnet,
-  transport: http(ETH_RPC_URL),
-});
-
 export interface GasPriceData {
   baseFee: bigint; // Base fee in wei (EIP-1559)
   priorityFee: bigint; // Priority fee in wei
@@ -21,40 +11,34 @@ export interface GasPriceData {
 }
 
 /**
- * Get current gas prices from Ethereum mainnet
- * Uses EIP-1559 fee estimation
+ * Get current gas prices from server-side API
+ * Uses EIP-1559 fee estimation (avoids CORS issues)
  */
 export async function getCurrentGasPrice(): Promise<GasPriceData> {
   try {
-    // Get current block to get base fee
-    const block = await publicClient.getBlock({
-      blockTag: "latest",
+    const response = await fetch("/api/gas-price", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
 
-    const baseFee = block.baseFeePerGas || 0n;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-    // Get recommended priority fee
-    // This is the tip to incentivize miners/validators
-    const priorityFee = await publicClient.estimateMaxPriorityFeePerGas();
-
-    // Calculate max fee per gas (EIP-1559)
-    // Formula: maxFeePerGas = (baseFee * 2) + priorityFee
-    // We use 2x baseFee to account for potential base fee increases
-    const maxFeePerGas = baseFee * 2n + priorityFee;
-
-    // Get legacy gas price (for comparison)
-    const gasPrice = await publicClient.getGasPrice();
+    const data = await response.json();
 
     return {
-      baseFee,
-      priorityFee,
-      maxFeePerGas,
-      gasPrice,
-      baseFeeGwei: Number(formatGwei(baseFee)),
-      priorityFeeGwei: Number(formatGwei(priorityFee)),
-      maxFeeGwei: Number(formatGwei(maxFeePerGas)),
-      gasPriceGwei: Number(formatGwei(gasPrice)),
-      timestamp: Date.now(),
+      baseFee: BigInt(data.baseFee),
+      priorityFee: BigInt(data.priorityFee),
+      maxFeePerGas: BigInt(data.maxFeePerGas),
+      gasPrice: BigInt(data.gasPrice),
+      baseFeeGwei: data.baseFeeGwei,
+      priorityFeeGwei: data.priorityFeeGwei,
+      maxFeeGwei: data.maxFeeGwei,
+      gasPriceGwei: data.gasPriceGwei,
+      timestamp: data.timestamp,
     };
   } catch (error) {
     console.error("Error fetching gas price:", error);

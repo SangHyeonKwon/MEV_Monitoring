@@ -177,11 +177,11 @@ export function getDefaultWatchedTokens(chainId: ChainId) {
 export const DEFAULT_WATCHED_TOKENS = DEFAULT_WATCHED_TOKENS_MAINNET;
 
 /**
- * 기본 차익거래 설정
+ * 기본 차익거래 설정 (HARDCODED: Mainnet only)
  */
 export const DEFAULT_ARBITRAGE_CONFIG: ArbitrageConfig = {
   enabled: false,
-  chainId: 1, // Ethereum Mainnet
+  chainId: 1, // FIXED: Ethereum Mainnet only
   refreshInterval: 10000, // 10 seconds (reduced RPC load)
   minProfitUsd: 50, // 최소 $50 수익
   maxGasPrice: 50, // 최대 50 Gwei
@@ -196,12 +196,13 @@ export const DEFAULT_ARBITRAGE_SETTINGS: ArbitrageSettings = {
     DexProtocol.PARASWAP,      // 백업 aggregator
     DexProtocol.UNISWAP_V3,
   ],
-  flashLoanProtocol: FlashLoanProtocol.AAVE_V3,
-  minProfitUsd: 50,
-  maxSlippage: 0.5, // Maximum 0.5% slippage
-  maxGasPrice: 50,
+  flashLoanProtocol: FlashLoanProtocol.BALANCER, // Changed to Balancer (0% fee!)
+  minProfitUsd: 5, // $5 minimum profit (mainnet ready)
+  maxSlippage: 0.5, // 0.5% max slippage (strict)
+  maxGasPrice: 50, // 50 Gwei max (cost control)
   tradeAmount: 1, // 1 ETH
   watchedTokens: DEFAULT_WATCHED_TOKENS,
+  autoExecute: true, // Auto-execute opportunities on Hardhat fork
 };
 
 /**
@@ -433,7 +434,7 @@ export function getFlashLoanFee(protocol: FlashLoanProtocol): number {
  * Flash Loan Arbitrage Contract Addresses
  */
 export const ARBITRAGE_CONTRACTS = {
-  1: "0x0000000000000000000000000000000000000000", // Mainnet (not deployed yet)
+  1: "0x21b26c866cf0524011b5fba99d4cc9aba644c4fd", // Mainnet (deployed: 2025-12-20)
   11155111: "0x221f68BEBDF4D20660747a6105970C727E78c36b", // Sepolia V2 (Uniswap V3 Flash Swap support)
 } as const;
 

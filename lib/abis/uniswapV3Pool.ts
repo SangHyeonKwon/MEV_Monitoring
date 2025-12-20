@@ -16,6 +16,13 @@ export const UNISWAP_V3_POOL_ABI = [
   },
   {
     inputs: [],
+    name: "liquidity",
+    outputs: [{ internalType: "uint128", name: "", type: "uint128" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "token0",
     outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
