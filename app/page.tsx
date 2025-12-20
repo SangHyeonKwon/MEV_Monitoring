@@ -14,6 +14,7 @@ export default function Home() {
     setChainId,
     clearOpportunities,
     executeArbitrage,
+    simulateArbitrage,
   } = useArbitrage();
 
   return (
@@ -115,6 +116,7 @@ export default function Home() {
             logs={state.logs}
             onClear={clearOpportunities}
             onExecute={executeArbitrage}
+            onSimulate={simulateArbitrage}
           />
         </div>
       </main>

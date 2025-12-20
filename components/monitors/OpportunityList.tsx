@@ -9,6 +9,7 @@ interface OpportunityListProps {
   logs: ScanLog[];
   onClear: () => void;
   onExecute: (opportunityId: string) => void;
+  onSimulate: (opportunityId: string) => void;
 }
 
 const STATUS_CONFIG = {
@@ -43,6 +44,7 @@ export default function OpportunityList({
   logs,
   onClear,
   onExecute,
+  onSimulate,
 }: OpportunityListProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -241,12 +243,20 @@ export default function OpportunityList({
                   </div>
 
                   {opp.status === "pending" && (
-                    <button
-                      onClick={() => onExecute(opp.id)}
-                      className="w-full gradient-primary text-white font-bold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
-                    >
-                      ⚡ Execute
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onSimulate(opp.id)}
+                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
+                      >
+                        🔬 Simulate
+                      </button>
+                      <button
+                        onClick={() => onExecute(opp.id)}
+                        className="flex-1 gradient-primary text-white font-bold py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg text-sm"
+                      >
+                        ⚡ Execute
+                      </button>
+                    </div>
                   )}
 
                   {opp.status === "executing" && (

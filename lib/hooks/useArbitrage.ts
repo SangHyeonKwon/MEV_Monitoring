@@ -7,6 +7,7 @@ import { getCurrentGasPrice } from "@/lib/utils/gas-price";
 import { getEthPriceCached } from "@/lib/utils/eth-price";
 import { scanAllWETHPairs } from "@/lib/utils/weth-arbitrage-scanner";
 import { initializeCSV, logOpportunity, updateExecutionStatus, logScanResults } from "@/lib/utils/csv-logger";
+import { simulateArbitrageExecution, formatSimulationResult } from "@/lib/utils/simulate-arbitrage";
 
 /**
  * 차익거래 상태 관리 훅
@@ -143,6 +144,65 @@ export function useArbitrage() {
     addLog("info", `📍 Contract: ${process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'Not configured'}`);
 
     return;
+  }, [state.opportunities, addLog]);
+
+  const simulateArbitrage = useCallback(async (opportunityId: string) => {
+    const opportunity = state.opportunities.find(o => o.id === opportunityId);
+    if (!opportunity) return;
+
+    const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+    if (!contractAddress) {
+      addLog("error", "❌ Contract address not configured");
+      return;
+    }
+
+    addLog("info", `🔬 Simulating ${opportunity.tokenPair}...`);
+
+    // Update status to simulating
+    setState((prev) => ({
+      ...prev,
+      opportunities: prev.opportunities.map((opp) =>
+        opp.id === opportunityId ? { ...opp, status: "executing" as const } : opp
+      ),
+    }));
+
+    try {
+      const result = await simulateArbitrageExecution(opportunity, contractAddress);
+
+      if (result.success) {
+        addLog("success", `✅ Simulation passed: ${formatSimulationResult(result)}`);
+        addLog("info", `💰 Expected profit: $${opportunity.netProfit.toFixed(2)}`);
+        addLog("info", `⛽ Gas estimate: ${result.estimatedGas?.toString()} units`);
+
+        setState((prev) => ({
+          ...prev,
+          opportunities: prev.opportunities.map((opp) =>
+            opp.id === opportunityId ? { ...opp, status: "pending" as const } : opp
+          ),
+        }));
+      } else {
+        addLog("error", `❌ ${formatSimulationResult(result)}`);
+        if (result.simulationDetails) {
+          addLog("error", `Details: ${result.simulationDetails.substring(0, 200)}`);
+        }
+
+        setState((prev) => ({
+          ...prev,
+          opportunities: prev.opportunities.map((opp) =>
+            opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
+          ),
+        }));
+      }
+    } catch (error: any) {
+      addLog("error", `❌ Simulation error: ${error.message || 'Unknown error'}`);
+
+      setState((prev) => ({
+        ...prev,
+        opportunities: prev.opportunities.map((opp) =>
+          opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
+        ),
+      }));
+    }
   }, [state.opportunities, addLog]);
 
   // Initialize CSV logger on mount
@@ -371,5 +431,6 @@ export function useArbitrage() {
     addOpportunity,
     clearOpportunities,
     executeArbitrage,
+    simulateArbitrage,
   };
 }
