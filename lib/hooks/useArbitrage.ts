@@ -6,7 +6,6 @@ import { DEFAULT_ARBITRAGE_CONFIG, DEFAULT_ARBITRAGE_SETTINGS, NETWORKS, getDefa
 import { getCurrentGasPrice } from "@/lib/utils/gas-price";
 import { getEthPriceCached } from "@/lib/utils/eth-price";
 import { scanAllWETHPairs } from "@/lib/utils/weth-arbitrage-scanner";
-import { executeArbitrageDryRun, isHardhatNodeRunning } from "@/lib/utils/execute-arbitrage";
 import { initializeCSV, logOpportunity, updateExecutionStatus, logScanResults } from "@/lib/utils/csv-logger";
 
 /**
@@ -137,120 +136,22 @@ export function useArbitrage() {
     const opportunity = state.opportunities.find(o => o.id === opportunityId);
     if (!opportunity) return;
 
-    // Check if Hardhat node is running
-    const nodeRunning = await isHardhatNodeRunning();
-    if (!nodeRunning) {
-      addLog("error", `❌ Hardhat node not running. Start with: npx hardhat node --fork ${process.env.NEXT_PUBLIC_ETH_RPC_URL}`);
-      return;
-    }
+    // MAINNET MODE: Execution disabled for safety
+    // This is a monitoring-only interface
+    addLog("warning", `⚠️ Manual execution required for Mainnet safety`);
+    addLog("info", `📋 Opportunity: ${opportunity.tokenPair} | Profit: $${opportunity.netProfit.toFixed(2)}`);
+    addLog("info", `📍 Contract: ${process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || 'Not configured'}`);
 
-    addLog("info", `🔧 Dry-run: Executing ${opportunity.tokenPair} on Hardhat fork...`);
-
-    // Set status to executing
-    setState((prev) => ({
-      ...prev,
-      opportunities: prev.opportunities.map((opp) =>
-        opp.id === opportunityId ? { ...opp, status: "executing" as const } : opp
-      ),
-    }));
-    
-    // Update CSV with executing status
-    updateExecutionStatus(opportunityId, "executing");
-
-    try {
-      // Get contract address from deployment
-      const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
-      if (!contractAddress) {
-        throw new Error("Contract address not configured");
-      }
-
-      // Execute on Hardhat fork
-      const result = await executeArbitrageDryRun(
-        opportunity,
-        contractAddress,
-        state.ethPrice || 3500
-      );
-
-      if (result.success) {
-        setState((prev) => ({
-          ...prev,
-          opportunities: prev.opportunities.map((opp) =>
-            opp.id === opportunityId ? { ...opp, status: "success" as const } : opp
-          ),
-          stats: {
-            ...prev.stats,
-            totalProfit: prev.stats.totalProfit + (result.profitUsd || 0),
-          },
-        }));
-        addLog("success", `✅ Dry-run succeeded! Estimated profit: $${result.profitUsd?.toFixed(2) || '0.00'} | Gas: ${result.gasUsed} | Tx: ${result.txHash?.slice(0, 10)}...`);
-        
-        // Update CSV with execution result
-        updateExecutionStatus(
-          opportunityId,
-          "success",
-          undefined,
-          result.txHash,
-          result.gasUsed,
-          result.profitUsd
-        );
-      } else {
-        setState((prev) => ({
-          ...prev,
-          opportunities: prev.opportunities.map((opp) =>
-            opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
-          ),
-        }));
-        addLog("error", `❌ Dry-run failed: ${result.error}`);
-        
-        // Update CSV with execution failure
-        updateExecutionStatus(
-          opportunityId,
-          "failed",
-          result.error
-        );
-      }
-    } catch (error: any) {
-      setState((prev) => ({
-        ...prev,
-        opportunities: prev.opportunities.map((opp) =>
-          opp.id === opportunityId ? { ...opp, status: "failed" as const } : opp
-        ),
-      }));
-      addLog("error", `❌ Execution error: ${error.message || 'Unknown error'}`);
-      
-      // Update CSV with execution error
-      updateExecutionStatus(
-        opportunityId,
-        "failed",
-        error.message || 'Unknown error'
-      );
-    }
-  }, [state.opportunities, state.ethPrice, addLog]);
+    return;
+  }, [state.opportunities, addLog]);
 
   // Initialize CSV logger on mount
   useEffect(() => {
     initializeCSV();
   }, []);
 
-  // Auto-execute opportunities when found
-  useEffect(() => {
-    if (!state.settings.autoExecute || state.opportunities.length === 0) return;
-
-    // Find the newest pending opportunity
-    const newestPending = state.opportunities.find(
-      (opp) => opp.status === "pending"
-    );
-
-    if (newestPending) {
-      addLog("info", `🤖 Auto-executing ${newestPending.tokenPair}...`);
-      // Delay slightly to allow state to settle
-      const timer = setTimeout(() => {
-        executeArbitrage(newestPending.id);
-      }, 200);
-
-      return () => clearTimeout(timer);
-    }
-  }, [state.opportunities, state.settings.autoExecute, executeArbitrage, addLog]);
+  // Auto-execute disabled for Mainnet safety
+  // Monitoring-only mode
 
   // 스캐닝 루프 - Real price fetching
   useEffect(() => {
