@@ -39,15 +39,12 @@ export default function ArbitrageControl({
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
               Ethereum Mainnet
             </div>
-            <div className="px-2 py-1 rounded-lg text-xs bg-gray-700/50 text-gray-400">
-              Chain ID: 1
-            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={downloadCSV}
-            className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-all"
+            className="px-6 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-bold transition-all duration-300 transform hover:scale-105"
             title="Download CSV data"
           >
             📥 CSV
