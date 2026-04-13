@@ -51,39 +51,6 @@
 
 ---
 
-## 🛠️ Tech Stack
-
-<table>
-<tr>
-<td align="center" width="96">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg" width="48" height="48" alt="Next.js" />
-<br>Next.js 15
-</td>
-<td align="center" width="96">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" width="48" height="48" alt="TypeScript" />
-<br>TypeScript
-</td>
-<td align="center" width="96">
-<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-original.svg" width="48" height="48" alt="Tailwind" />
-<br>Tailwind
-</td>
-<td align="center" width="96">
-<img src="https://viem.sh/favicons/favicon.ico" width="48" height="48" alt="viem" />
-<br>viem · wagmi
-</td>
-<td align="center" width="96">
-<img src="https://www.alchemy.com/favicon.ico" width="48" height="48" alt="Alchemy" />
-<br>Alchemy RPC
-</td>
-<td align="center" width="96">
-<img src="https://turbo.build/images/favicon-dark/apple-touch-icon.png" width="48" height="48" alt="Turbopack" />
-<br>Turbopack
-</td>
-</tr>
-</table>
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
