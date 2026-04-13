@@ -1,60 +1,103 @@
-# Flash Loan Arbitrage Scanner
+<div align="center">
 
-Real-time flash loan arbitrage scanner for Ethereum Mainnet. Detects profitable cross-DEX price discrepancies and executes atomic arbitrage trades using flash loans — no upfront capital required.
+# ⚡ Flash Loan Arbitrage Scanner
 
-## Features
+**Real-time cross-DEX arbitrage detection & atomic execution on Ethereum Mainnet**
 
-- **1inch Aggregator** — Primary price source for optimal routing
-- **Flash Loan Execution** — Aave V3 flash loans for zero-capital trades
-- **Multi-Source Monitoring** — Compares prices across 1inch, ParaSwap, and Uniswap V3
-- **Real-Time Scanning** — Polls for price discrepancies every 5 seconds
-- **Profitability Calculation** — Accounts for gas costs to compute net profit
-- **Atomic Transactions** — All operations execute in a single transaction
+*Zero capital required — powered by Aave V3 flash loans*
 
-## Supported Sources
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![viem](https://img.shields.io/badge/viem-2.x-FFC517?style=flat-square)](https://viem.sh/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Aggregators:**
-- 1inch (primary)
-- ParaSwap (backup)
+</div>
 
-**Direct DEX:**
-- Uniswap V3 / V2
-- SushiSwap
+---
 
-**Flash Loan Providers:**
-- Aave V3 (default)
-- Uniswap V3
-- Balancer
+## ✨ Highlights
 
-## Monitored Pairs
+- 🔍 **Real-time scanning** — Polls cross-DEX prices every 5 seconds for arbitrage opportunities
+- ⚡ **Zero-capital execution** — Aave V3 flash loans eliminate upfront capital requirements
+- 🧮 **Profit-aware** — Net profit calculation accounts for gas costs before execution
+- 🔗 **Atomic by design** — All operations settle in a single transaction, or revert
+- 📊 **Multi-source aggregation** — Cross-references 1inch, ParaSwap, and Uniswap V3 quotes
+- 🎯 **Production-grade routing** — 1inch aggregator as primary price source for optimal paths
 
-- WETH / USDC
-- WETH / USDT
-- WETH / DAI
-- WBTC / WETH
+---
 
-## Tech Stack
+## 🏗️ Architecture
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 15 |
-| Language | TypeScript |
-| Styling | Tailwind CSS |
-| Web3 | viem, wagmi |
-| RPC | Alchemy |
-| Build | Turbopack |
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Price Sources  │────▶│  Scanner Engine  │────▶│  Flash Loan TX  │
+│ 1inch│ParaSwap  │     │  Δ price + gas   │     │   Aave V3 Pool  │
+│  Uniswap V3/V2  │     │   profitability  │     │  Atomic Settle  │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+```
 
-## Getting Started
+### Supported Sources
+
+| Category | Providers |
+|----------|-----------|
+| **Aggregators** | 1inch *(primary)* · ParaSwap *(backup)* |
+| **Direct DEX** | Uniswap V3 · Uniswap V2 · SushiSwap |
+| **Flash Loans** | Aave V3 *(default)* · Uniswap V3 · Balancer |
+
+### Monitored Pairs
+
+`WETH/USDC` · `WETH/USDT` · `WETH/DAI` · `WBTC/WETH`
+
+---
+
+## 🛠️ Tech Stack
+
+<table>
+<tr>
+<td align="center" width="96">
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg" width="48" height="48" alt="Next.js" />
+<br>Next.js 15
+</td>
+<td align="center" width="96">
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" width="48" height="48" alt="TypeScript" />
+<br>TypeScript
+</td>
+<td align="center" width="96">
+<img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-original.svg" width="48" height="48" alt="Tailwind" />
+<br>Tailwind
+</td>
+<td align="center" width="96">
+<img src="https://viem.sh/favicons/favicon.ico" width="48" height="48" alt="viem" />
+<br>viem · wagmi
+</td>
+<td align="center" width="96">
+<img src="https://www.alchemy.com/favicon.ico" width="48" height="48" alt="Alchemy" />
+<br>Alchemy RPC
+</td>
+<td align="center" width="96">
+<img src="https://turbo.build/images/favicon-dark/apple-touch-icon.png" width="48" height="48" alt="Turbopack" />
+<br>Turbopack
+</td>
+</tr>
+</table>
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js 20+
-- Alchemy API key ([alchemy.com](https://www.alchemy.com/))
+- **Node.js** `20+`
+- **Alchemy API key** — [get one here](https://www.alchemy.com/)
 
 ### Installation
 
 ```bash
+# Clone & install
 npm install
+
+# Configure environment
 cp .env.example .env.local
 ```
 
@@ -64,69 +107,86 @@ Edit `.env.local`:
 NEXT_PUBLIC_ETH_RPC_URL=https://eth-mainnet.g.alchemy.com/v2/YOUR_API_KEY
 ```
 
-### Run
+### Development
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+→ Open [http://localhost:3000](http://localhost:3000)
 
-### Production Build
+### Production
 
 ```bash
 npm run build
 npm start
 ```
 
-## Usage
+---
+
+## 📖 Usage
 
 1. Set your Alchemy API key in `.env.local`
-2. Click **Start** to begin scanning
-3. Detected opportunities appear in the right panel
-4. Click **Execute** to send the arbitrage transaction
+2. Click **Start** to begin scanning the mempool
+3. Detected opportunities stream into the right panel in real-time
+4. Click **Execute** to dispatch the atomic arbitrage transaction
 
-### Default Settings
+### Default Configuration
 
-| Setting | Value |
-|---------|-------|
-| Min Profit | $50 USD |
-| Max Gas Price | 50 Gwei |
-| Trade Amount | 1 ETH (flash loan) |
-| Scan Interval | 5 seconds |
+| Parameter | Value |
+|-----------|------:|
+| Min Profit Threshold | `$50 USD` |
+| Max Gas Price | `50 Gwei` |
+| Trade Amount | `1 ETH` *(flash loan)* |
+| Scan Interval | `5s` |
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
-├── app/                        # Next.js App Router
+.
+├── app/                          # Next.js App Router
 │   ├── layout.tsx
 │   └── page.tsx
 ├── components/
 │   └── monitors/
 │       ├── ArbitrageControl.tsx  # Control panel
-│       └── OpportunityList.tsx   # Opportunity list
+│       └── OpportunityList.tsx   # Opportunity feed
 ├── lib/
-│   ├── config.ts               # DEX addresses & settings
+│   ├── config.ts                 # DEX addresses & params
 │   ├── hooks/
-│   │   └── useArbitrage.ts     # Arbitrage state management
-│   └── utils/                  # Utility functions
+│   │   └── useArbitrage.ts       # Arbitrage state machine
+│   └── utils/                    # Helpers
 └── types/
-    └── monitor.ts              # TypeScript type definitions
+    └── monitor.ts                # Type definitions
 ```
 
-## Verification
+---
 
-See [`VERIFICATION_GUIDE.md`](./VERIFICATION_GUIDE.md) for how to verify whether a detected opportunity would have been profitable.
+## ✅ Verification
 
-## Disclaimer
+See [`VERIFICATION_GUIDE.md`](./VERIFICATION_GUIDE.md) for how to verify whether a detected opportunity would have settled profitably on-chain.
 
-This project is built for **educational purposes only**.
+---
 
-- Thorough testing is required before using real funds
-- Gas fees apply when executing smart contract transactions
-- Arbitrage trades can fail and result in losses
-- **Never commit private keys to GitHub**
+## ⚠️ Disclaimer
 
-## License
+> This project is built for **educational purposes only**.
 
-MIT
+- 🧪 Thorough testing is required before using real funds
+- ⛽ Gas fees apply on every smart contract execution
+- 📉 Arbitrage trades can fail and result in net losses
+- 🔐 **Never commit private keys to source control**
+
+---
+
+## 📄 License
+
+Released under the [MIT License](./LICENSE).
+
+<div align="center">
+
+**Built with ⚡ for the DeFi community**
+
+</div>
